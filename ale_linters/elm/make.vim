@@ -12,8 +12,6 @@ endfunction
 
 function! ale_linters#elm#make#Handle(buffer, lines) abort
     let l:output = []
-    let l:is_windows = has('win32')
-    let l:temp_dir = l:is_windows ? $TMP : $TMPDIR
     let l:unparsed_lines = []
     for l:line in a:lines
         if l:line[0] is# '['
@@ -22,13 +20,7 @@ function! ale_linters#elm#make#Handle(buffer, lines) abort
             for l:error in l:errors
                 " Check if file is from the temp directory.
                 " Filters out any errors not related to the buffer.
-                if l:is_windows
-                    let l:file_is_buffer = l:error.file[0:len(l:temp_dir) - 1] is? l:temp_dir
-                else
-                    let l:file_is_buffer = l:error.file[0:len(l:temp_dir) - 1] is# l:temp_dir
-                endif
-
-                if l:file_is_buffer
+                if s:file_is_buffer(a:buffer, l:error.file)
                     call add(l:output, {
                     \    'lnum': l:error.region.start.line,
                     \    'col': l:error.region.start.column,
@@ -78,6 +70,25 @@ function! ale_linters#elm#make#GetCommand(buffer) abort
     \   . ' --output=/dev/null'
 
     return l:dir_set_cmd . ' ' . l:elm_cmd . ' %t'
+endfunction
+
+function! s:file_is_buffer(buffer, file)
+  let l:is_windows = has('win32')
+  " if any temp folder match return 1
+  for l:temp_dir in g:ale_buffer_info[a:buffer].temporary_directory_list
+    if l:is_windows
+      if a:file[0:len(l:temp_dir) - 1] is? l:temp_dir
+        return 1
+      endif
+    else
+      if a:file[0:len(l:temp_dir) - 1] is# l:temp_dir
+        return 1
+      endif
+    endif
+  endfor
+
+  " if no folder match return 0
+  return 0
 endfunction
 
 call ale#linter#Define('elm', {
